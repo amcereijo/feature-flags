@@ -1,65 +1,49 @@
-# feature-flags (Root Repository)
+# feature-flags (Monorepo)
 
-This repository is the main entry point for working with the feature flags projects. It contains two submodules, each with its own independent repository and version control.
+This repository contains all projects related to the feature flags system, organized as a monorepo. All code is versioned under this main repository.
 
-## Structure
+## Monorepo Structure
 
-- `go-api-sqllite`  
-  Go API with SQLite.  
-  Remote: [git@github.com:amcereijo/go-api-sqllite.git](git@github.com:amcereijo/go-api-sqllite.git)
+- `api/`
+  Go API with SQLite for feature flag management.
 
-- `go-api-sqlite-client`  
-  Go client for the API.  
-  Remote: [git@github.com:amcereijo/go-api-sqllite-client.git](git@github.com:amcereijo/go-api-sqllite-client.git)
+- `web-client/`
+  Modern React web client for managing feature flags.
 
-## Cloning the repository
+## Cloning the Repository
 
-To clone this repository along with its submodules, run:
+To clone the monorepo:
 
 ```sh
 git clone git@github.com:amcereijo/feature-flags.git
 cd feature-flags
-git submodule update --init --recursive
 ```
 
-This will download the root repository and both submodules on the `main` branch.
+## Working with Subprojects
 
-## Updating submodules
-
-If the submodules have changed remotely and you want to update your local copy:
+Each subproject is a regular folder inside the main repository. You can enter each one and use the usual tools:
 
 ```sh
-git submodule update --remote --merge
-```
-
-## Working with submodules
-
-Each submodule is an independent Git repository. You can enter each folder and work with Git as usual:
-
-```sh
-cd go-api-sqllite
+cd api
 # or
-cd go-api-sqlite-client
+cd web-client
 ```
 
-Remember to `push` and `pull` within the submodules to synchronize your changes with their respective remotes.
+All changes are managed from the root of the main repository. There are no internal `.git` folders in the subprojects.
 
-## Adding new submodules
+## Recommended Structure
 
-To add a new submodule:
+- `api/` - Go + SQLite backend (see specific README in `api/`)
+- `web-client/` - React frontend (see specific README in `web-client/`)
 
-```sh
-git submodule add -b main <repo-url> <directory>
-git commit -am "Add new submodule"
-git push
-```
+## Recommended Workflow
+
+1. Make your changes in the appropriate branch.
+2. Commit and push from the root of the repository.
+3. If you work on both projects, you can make joint or separate commits as needed.
 
 ## Notes
 
-- If you clone the repository and see empty folders for the submodules, make sure to run `git submodule update --init --recursive`.
-- If you need to change the branch of a submodule, enter its folder and use the usual Git commands.
+- Check the README in each subfolder for project-specific instructions.
 
 ---
-
-**Root repository:**  
-[git@github.com:amcereijo/feature-flags.git](git@github.com:amcereijo/feature-flags.git)
