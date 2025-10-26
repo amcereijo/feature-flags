@@ -1,0 +1,8 @@
+[submodule "go-api-sqllite"]
+	path = go-api-sqllite
+	url = ./go-api-sqllite
+	branch = main
+[submodule "go-api-sqlite-client"]
+	path = go-api-sqlite-client
+	url = git@github.com:amcereijo/go-api-sqllite-client.git
+	branch = main
