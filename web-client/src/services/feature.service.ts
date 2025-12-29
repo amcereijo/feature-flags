@@ -1,5 +1,6 @@
 import { ApiClient } from "./api.client";
-import type { Feature, FeatureValueType } from "../types/feature.types";
+import type { Feature } from "../types/feature.types";
+import type { FeatureValueType } from "../types/feature.types";
 
 export class FeatureService {
   private apiClient: ApiClient;
