@@ -2,6 +2,7 @@ import { getDb } from "../db";
 import type { ApiToken } from "../models/types";
 import { generateToken } from "../utils/jwt";
 import { authMiddleware } from "../middleware/auth";
+import type { Elysia } from "elysia";
 
 // Utilidad para mapear filas de la base de datos al modelo ApiToken
 function mapApiToken(row: any): ApiToken {
@@ -16,16 +17,14 @@ function mapApiToken(row: any): ApiToken {
 }
 
 // Crear token API
-async function createToken(req: Request): Promise<Response> {
+async function createToken(ctx: any) {
   try {
-    const body = await req.json();
+    const body = ctx.body;
     const { name, createdByUid } = body;
 
     if (!name) {
-      return new Response(JSON.stringify({ error: "Missing name" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      ctx.set.status = 400;
+      return { error: "Missing name" };
     }
 
     // Generar JWT como token API
@@ -42,66 +41,71 @@ async function createToken(req: Request): Promise<Response> {
       .query("SELECT * FROM api_tokens ORDER BY id DESC LIMIT 1")
       .get();
 
-    return new Response(JSON.stringify(mapApiToken(row)), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 201;
+    return mapApiToken(row);
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Invalid request" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Invalid request" };
   }
 }
 
 // Listar tokens API
-async function listTokens(_req: Request): Promise<Response> {
+async function listTokens(ctx: any) {
   const db = getDb();
   const rows = db.query("SELECT * FROM api_tokens").all();
-  const tokens = rows.map(mapApiToken);
-  return new Response(JSON.stringify(tokens), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  ctx.set.status = 200;
+  return rows.map(mapApiToken);
 }
 
 // Eliminar token API
-async function deleteToken(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const id = url.pathname.split("/").pop();
+async function deleteToken(ctx: any) {
+  const id = ctx.params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing token ID" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Missing token ID" };
   }
   const db = getDb();
   const row = db.prepare("SELECT * FROM api_tokens WHERE id = ?").get(id);
   if (!row) {
-    return new Response(JSON.stringify({ error: "Token not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 404;
+    return { error: "Token not found" };
   }
   db.prepare("DELETE FROM api_tokens WHERE id = ?").run(id);
-  return new Response(null, { status: 204 });
+  ctx.set.status = 204;
+  return null;
 }
 
-// Definición de rutas
-export const tokenRoutes = [
-  {
-    path: "/api/tokens",
-    method: "POST",
-    handler: authMiddleware(createToken),
-  },
-  {
-    path: "/api/tokens",
-    method: "GET",
-    handler: authMiddleware(listTokens),
-  },
-  {
-    path: "/api/tokens/:id",
-    method: "DELETE",
-    handler: authMiddleware(deleteToken),
-  },
-];
+// Elysia route registration
+export function registerTokenRoutes(app: Elysia) {
+  app.post(
+    "/api/tokens",
+    async (ctx) => authMiddleware(() => createToken(ctx))(ctx.request),
+    {
+      detail: {
+        summary: "Create API token",
+      },
+      body: "json",
+      response: "json",
+    },
+  );
+  app.get(
+    "/api/tokens",
+    async (ctx) => authMiddleware(() => listTokens(ctx))(ctx.request),
+    {
+      detail: {
+        summary: "List API tokens",
+      },
+      response: "json",
+    },
+  );
+  app.delete(
+    "/api/tokens/:id",
+    async (ctx) => authMiddleware(() => deleteToken(ctx))(ctx.request),
+    {
+      detail: {
+        summary: "Delete API token",
+      },
+      response: "json",
+    },
+  );
+}

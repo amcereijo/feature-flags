@@ -1,6 +1,7 @@
 import { getDb } from "../db";
 import type { Feature } from "../models/types";
 import { authMiddleware } from "../middleware/auth";
+import type { Elysia } from "elysia";
 
 // Utilidad para mapear filas de la base de datos al modelo Feature
 function mapFeature(row: any): Feature {
@@ -15,16 +16,14 @@ function mapFeature(row: any): Feature {
 }
 
 // Crear feature
-async function createFeature(req: Request): Promise<Response> {
+async function createFeature(ctx: any) {
   try {
-    const body = await req.json();
+    const body = ctx.body;
     const { name, value, resourceId, active } = body;
 
     if (!name || typeof value === "undefined") {
-      return new Response(JSON.stringify({ error: "Missing name or value" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      ctx.set.status = 400;
+      return { error: "Missing name or value" };
     }
 
     const db = getDb();
@@ -42,74 +41,55 @@ async function createFeature(req: Request): Promise<Response> {
       .query("SELECT * FROM features ORDER BY id DESC LIMIT 1")
       .get();
 
-    return new Response(JSON.stringify(mapFeature(row)), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 201;
+    return mapFeature(row);
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Invalid request" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Invalid request" };
   }
 }
 
 // Listar features
-async function listFeatures(_req: Request): Promise<Response> {
+async function listFeatures(ctx: any) {
   const db = getDb();
   const rows = db.query("SELECT * FROM features").all();
-  const features = rows.map(mapFeature);
-  return new Response(JSON.stringify(features), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  ctx.set.status = 200;
+  return rows.map(mapFeature);
 }
 
 // Obtener feature por ID
-async function getFeature(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const id = url.pathname.split("/").pop();
+async function getFeature(ctx: any) {
+  const id = ctx.params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing feature ID" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Missing feature ID" };
   }
   const db = getDb();
   const row = db.query("SELECT * FROM features WHERE id = ?").get(id);
   if (!row) {
-    return new Response(JSON.stringify({ error: "Feature not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 404;
+    return { error: "Feature not found" };
   }
-  return new Response(JSON.stringify(mapFeature(row)), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  ctx.set.status = 200;
+  return mapFeature(row);
 }
 
 // Actualizar feature
-async function updateFeature(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const id = url.pathname.split("/").pop();
+async function updateFeature(ctx: any) {
+  const id = ctx.params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing feature ID" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Missing feature ID" };
   }
   try {
-    const body = await req.json();
+    const body = ctx.body;
     const { name, value, resourceId, active } = body;
 
     const db = getDb();
     const row = db.query("SELECT * FROM features WHERE id = ?").get(id);
     if (!row) {
-      return new Response(JSON.stringify({ error: "Feature not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
+      ctx.set.status = 404;
+      return { error: "Feature not found" };
     }
 
     db.run(
@@ -124,65 +104,74 @@ async function updateFeature(req: Request): Promise<Response> {
     );
 
     const updated = db.query("SELECT * FROM features WHERE id = ?").get(id);
-    return new Response(JSON.stringify(mapFeature(updated)), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 200;
+    return mapFeature(updated);
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Invalid request" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Invalid request" };
   }
 }
 
 // Eliminar feature
-async function deleteFeature(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const id = url.pathname.split("/").pop();
+async function deleteFeature(ctx: any) {
+  const id = ctx.params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing feature ID" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 400;
+    return { error: "Missing feature ID" };
   }
   const db = getDb();
   const row = db.query("SELECT * FROM features WHERE id = ?").get(id);
   if (!row) {
-    return new Response(JSON.stringify({ error: "Feature not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    ctx.set.status = 404;
+    return { error: "Feature not found" };
   }
   db.run("DELETE FROM features WHERE id = ?", [id]);
-  return new Response(null, { status: 204 });
+  ctx.set.status = 204;
+  return null;
 }
 
-// Definición de rutas
-export const featureRoutes = [
-  {
-    path: "/api/features",
-    method: "POST",
-    handler: authMiddleware(createFeature),
-  },
-  {
-    path: "/api/features",
-    method: "GET",
-    handler: authMiddleware(listFeatures),
-  },
-  {
-    path: "/api/features/:id",
-    method: "GET",
-    handler: authMiddleware(getFeature),
-  },
-  {
-    path: "/api/features/:id",
-    method: "PUT",
-    handler: authMiddleware(updateFeature),
-  },
-  {
-    path: "/api/features/:id",
-    method: "DELETE",
-    handler: authMiddleware(deleteFeature),
-  },
-];
+// Elysia route registration
+export function registerFeatureRoutes(app: Elysia) {
+  app.post(
+    "/api/features",
+    async (ctx) => authMiddleware(() => createFeature(ctx))(ctx.request),
+    {
+      detail: { summary: "Create feature" },
+      body: "json",
+      response: "json",
+    },
+  );
+  app.get(
+    "/api/features",
+    async (ctx) => authMiddleware(() => listFeatures(ctx))(ctx.request),
+    {
+      detail: { summary: "List features" },
+      response: "json",
+    },
+  );
+  app.get(
+    "/api/features/:id",
+    async (ctx) => authMiddleware(() => getFeature(ctx))(ctx.request),
+    {
+      detail: { summary: "Get feature by ID" },
+      response: "json",
+    },
+  );
+  app.put(
+    "/api/features/:id",
+    async (ctx) => authMiddleware(() => updateFeature(ctx))(ctx.request),
+    {
+      detail: { summary: "Update feature" },
+      body: "json",
+      response: "json",
+    },
+  );
+  app.delete(
+    "/api/features/:id",
+    async (ctx) => authMiddleware(() => deleteFeature(ctx))(ctx.request),
+    {
+      detail: { summary: "Delete feature" },
+      response: "json",
+    },
+  );
+}

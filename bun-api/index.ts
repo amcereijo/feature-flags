@@ -1,22 +1,28 @@
-import { handleRequest } from "./src/routes/index";
+import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
 
-// Configuración básica
+import { registerFeatureRoutes } from "./src/routes/features";
+import { registerTokenRoutes } from "./src/routes/tokens";
+import { registerHealthRoute } from "./src/routes/health";
+
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
-console.log(`🚀 Bun API server starting on http://localhost:${PORT}`);
+const app = new Elysia();
+app.use(cors());
+// app.setMeta("description", "Elysia API for Feature Flags Management");
 
-// Servidor HTTP principal usando la API nativa de Bun
-Bun.serve({
-  port: PORT,
-  fetch: async (req: Request) => {
-    // Manejo centralizado de rutas
-    return await handleRequest(req);
-  },
-  error(error) {
-    console.error("Server error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  },
+registerHealthRoute(app);
+registerFeatureRoutes(app);
+registerTokenRoutes(app);
+
+app.onError(({ code, error }) => {
+  console.error("Server error:", error);
+  return new Response(JSON.stringify({ error: "Internal server error" }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Elysia API server running at http://localhost:${PORT}`);
 });

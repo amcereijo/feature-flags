@@ -1,12 +1,8 @@
-// Health check route for Bun API
+import type { Elysia } from "elysia";
 
-export const healthRoute = {
-  path: "/health",
-  method: "GET",
-  handler: async (_req: Request): Promise<Response> => {
-    return new Response(JSON.stringify({ status: "ok" }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  },
-};
+/**
+ * Registers the health check route on the provided Elysia app.
+ */
+export function registerHealthRoute(app: Elysia) {
+  app.get("/health", () => ({ status: "ok" }));
+}
