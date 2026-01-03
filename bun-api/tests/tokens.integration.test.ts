@@ -9,24 +9,25 @@ let createdTokenId: number;
 let createdToken: string;
 let serverProcess: any;
 
-// Cambia esto por un token válido de admin o crea uno manualmente antes de correr los tests
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "<admin-token>";
-
 beforeAll(async () => {
-  // Inicia el servidor de Bun como un subproceso
+  // Start the Bun server as a subprocess with TEST_MODE enabled
   serverProcess = spawn({
     cmd: ["bun", "index.ts"],
     cwd: path.resolve(__dirname, ".."),
-    env: { ...process.env, PORT: BASE_PORT.toString() },
-    stdout: "inherit",
-    stderr: "inherit",
+    env: {
+      ...process.env,
+      PORT: BASE_PORT.toString(),
+      NODE_ENV: "test",
+    },
+    stdout: "pipe",
+    stderr: "pipe",
   });
 
-  // Espera a que el servidor esté listo (puedes mejorar esto con un healthcheck real)
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Wait for the server to be ready
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  // Usa el token de admin para autenticación en los tests
-  adminToken = ADMIN_TOKEN;
+  // In test mode with mocked Clerk, any request will pass authentication
+  adminToken = "test-admin-token";
 });
 
 describe("Tokens API", () => {
@@ -62,14 +63,14 @@ describe("Tokens API", () => {
   });
 
   it("should allow using the created token to access protected endpoints", async () => {
-    // Usar el token recién creado para acceder a /api/features (GET)
+    // Use the newly created token to access /api/features (GET)
     const res = await fetch(`${BASE_URL}/api/features`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${createdToken}`,
       },
     });
-    // Puede ser 200 (si hay features) o 200 con array vacío
+    // Should be 200 (whether features exist or empty array)
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
@@ -99,6 +100,9 @@ describe("Tokens API", () => {
 });
 
 afterAll(async () => {
-  // Detén el servidor de Bun
-  if (serverProcess) serverProcess.kill();
+  // Stop the Bun server
+  if (serverProcess) {
+    serverProcess.kill();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
 });
