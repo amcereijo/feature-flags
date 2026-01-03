@@ -1,7 +1,7 @@
 import { getDb } from "../db";
 import type { Feature } from "../models/types";
-import { authMiddleware } from "../middleware/auth";
-import type { Elysia } from "elysia";
+import { clerkMiddleware } from "../middleware/clerk";
+import type { Context, Elysia } from "elysia";
 
 // Utilidad para mapear filas de la base de datos al modelo Feature
 function mapFeature(row: any): Feature {
@@ -50,7 +50,7 @@ async function createFeature(ctx: any) {
 }
 
 // Listar features
-async function listFeatures(ctx: any) {
+async function listFeatures(ctx: Context) {
   const db = getDb();
   const rows = db.query("SELECT * FROM features").all();
   ctx.set.status = 200;
@@ -132,46 +132,28 @@ async function deleteFeature(ctx: any) {
 
 // Elysia route registration
 export function registerFeatureRoutes(app: Elysia) {
-  app.post(
-    "/api/features",
-    async (ctx) => authMiddleware(() => createFeature(ctx))(ctx.request),
-    {
-      detail: { summary: "Create feature" },
-      body: "json",
-      response: "json",
-    },
-  );
-  app.get(
-    "/api/features",
-    async (ctx) => authMiddleware(() => listFeatures(ctx))(ctx.request),
-    {
-      detail: { summary: "List features" },
-      response: "json",
-    },
-  );
-  app.get(
-    "/api/features/:id",
-    async (ctx) => authMiddleware(() => getFeature(ctx))(ctx.request),
-    {
-      detail: { summary: "Get feature by ID" },
-      response: "json",
-    },
-  );
-  app.put(
-    "/api/features/:id",
-    async (ctx) => authMiddleware(() => updateFeature(ctx))(ctx.request),
-    {
-      detail: { summary: "Update feature" },
-      body: "json",
-      response: "json",
-    },
-  );
-  app.delete(
-    "/api/features/:id",
-    async (ctx) => authMiddleware(() => deleteFeature(ctx))(ctx.request),
-    {
-      detail: { summary: "Delete feature" },
-      response: "json",
-    },
-  );
+  app.post("/api/features", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return createFeature(ctx);
+  });
+
+  app.get("/api/features", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return listFeatures(ctx);
+  });
+
+  app.get("/api/features/:id", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return getFeature(ctx);
+  });
+
+  app.put("/api/features/:id", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return updateFeature(ctx);
+  });
+
+  app.delete("/api/features/:id", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return deleteFeature(ctx);
+  });
 }

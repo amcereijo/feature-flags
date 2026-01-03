@@ -1,7 +1,7 @@
 import { getDb } from "../db";
 import type { ApiToken } from "../models/types";
 import { generateToken } from "../utils/jwt";
-import { authMiddleware } from "../middleware/auth";
+import { clerkMiddleware } from "../middleware/clerk";
 import type { Elysia } from "elysia";
 
 // Utilidad para mapear filas de la base de datos al modelo ApiToken
@@ -77,35 +77,18 @@ async function deleteToken(ctx: any) {
 
 // Elysia route registration
 export function registerTokenRoutes(app: Elysia) {
-  app.post(
-    "/api/tokens",
-    async (ctx) => authMiddleware(() => createToken(ctx))(ctx.request),
-    {
-      detail: {
-        summary: "Create API token",
-      },
-      body: "json",
-      response: "json",
-    },
-  );
-  app.get(
-    "/api/tokens",
-    async (ctx) => authMiddleware(() => listTokens(ctx))(ctx.request),
-    {
-      detail: {
-        summary: "List API tokens",
-      },
-      response: "json",
-    },
-  );
-  app.delete(
-    "/api/tokens/:id",
-    async (ctx) => authMiddleware(() => deleteToken(ctx))(ctx.request),
-    {
-      detail: {
-        summary: "Delete API token",
-      },
-      response: "json",
-    },
-  );
+  app.post("/api/tokens", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return createToken(ctx);
+  });
+
+  app.get("/api/tokens", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return listTokens(ctx);
+  });
+
+  app.delete("/api/tokens/:id", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return deleteToken(ctx);
+  });
 }
