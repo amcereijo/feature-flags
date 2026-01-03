@@ -1,6 +1,6 @@
 # bun-api
 
-A feature flag service implemented in TypeScript using [Bun](https://bun.sh/), inspired by the original Go-based `api` service.
+A feature flag service implemented in TypeScript using [Bun](https://bun.sh/) and [Elysia](https://elysiajs.com/), with Clerk authentication.
 
 ---
 
@@ -9,14 +9,14 @@ A feature flag service implemented in TypeScript using [Bun](https://bun.sh/), i
 ```
 bun-api/
 ├── src/
-│   ├── controllers/   # Route handlers
-│   ├── db/            # Database connection and queries
-│   ├── middleware/    # Authentication and other middleware
+│   ├── controllers/   # Route handlers (if needed)
+│   ├── db/            # Database connection and schema initialization
+│   ├── middleware/    # Clerk authentication middleware
 │   ├── models/        # TypeScript types and interfaces
-│   ├── routes/        # Route definitions
-│   └── utils/         # Utility functions (e.g., JWT helpers)
+│   ├── routes/        # Route definitions (features, tokens, health)
+│   └── utils/         # Utility functions (JWT helpers)
 ├── tests/             # Integration tests
-├── index.ts           # Entry point
+├── index.ts           # Entry point - Elysia app setup
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -27,222 +27,337 @@ bun-api/
 ## Features
 
 - REST API for managing feature flags
-- API token authentication (JWT)
+- Clerk authentication for protected routes
+- JWT tokens for API access
 - SQLite database (via Bun's built-in Database API)
 - Health check endpoint
+- CORS support
+- Integration tests with Bun test runner
 
 ---
 
 ## Requirements
 
 - [Bun](https://bun.sh/) v1.0+
-- SQLite3
+- Clerk account with API keys
 
 ---
 
 ## Setup
 
-1. **Install dependencies:**
-   ```bash
-   bun install
-   ```
+### 1. Install Dependencies
 
-2. **Configure the database:**
-   - By default, uses `feature-flags.db` in the project root.
-   - You can change the path in `src/db/index.ts`.
+```bash
+bun install
+```
 
-3. **Run the server:**
-   ```bash
-   bun run index.ts
-   ```
+### 2. Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```bash
+# Server Configuration
+PORT=3000
+
+# Clerk Authentication (required for production)
+CLERK_SECRET_KEY=your_clerk_secret_key
+CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+
+# JWT Configuration (for API tokens)
+JWT_SECRET=your_jwt_secret_change_in_production
+
+# Test Mode (optional)
+NODE_ENV=development  # Set to "test" to bypass Clerk authentication
+```
+
+**Note:** In test mode (`NODE_ENV=test`), Clerk authentication is bypassed to facilitate integration testing.
+
+### 3. Database Configuration
+
+The application automatically creates a SQLite database at `feature-flags.db` in the project root on first run. The database includes two tables:
+
+- `api_tokens` - Stores API tokens for authentication
+- `features` - Stores feature flags with metadata
+
+You can modify the database path in `src/db/index.ts` if needed.
+
+### 4. Run the Server
+
+```bash
+bun run index.ts
+```
+
+The server will start at `http://localhost:3000` (or the port specified in `PORT` environment variable).
 
 ---
 
-## Endpoints
+## API Endpoints
 
-- `POST /api/tokens` - Create API token
-- `GET /api/tokens` - List API tokens
-- `DELETE /api/tokens/:id` - Delete API token
-- `POST /api/features` - Create feature flag
-- `GET /api/features` - List all feature flags
-- `GET /api/features/:id` - Get feature flag by ID
-- `PUT /api/features/:id` - Update feature flag
-- `DELETE /api/features/:id` - Delete feature flag
-- `GET /health` - Health check
+All endpoints except `/health` require Clerk authentication via the `Authorization` header with a valid Bearer token.
+
+### Health Check
+
+- **GET** `/health` - Health check endpoint (no authentication required)
+  - Response: `{ "status": "ok" }`
+
+### API Tokens
+
+- **POST** `/api/tokens` - Create a new API token
+  - Body: `{ "name": "token-name", "createdByUid": "user-id" }`
+  - Response: `{ "id": 1, "name": "token-name", "token": "jwt-token", ... }`
+
+- **GET** `/api/tokens` - List all API tokens
+  - Response: Array of token objects
+
+- **DELETE** `/api/tokens/:id` - Delete an API token
+  - Response: 204 No Content
+
+### Feature Flags
+
+- **POST** `/api/features` - Create a new feature flag
+  - Body: `{ "name": "feature-name", "value": "true", "resourceId": "optional-id", "active": true }`
+  - Response: `{ "id": 1, "name": "feature-name", "value": "true", ... }`
+
+- **GET** `/api/features` - List all feature flags
+  - Response: Array of feature objects
+
+- **GET** `/api/features/:id` - Get a specific feature flag
+  - Response: Feature object
+
+- **PUT** `/api/features/:id` - Update a feature flag
+  - Body: `{ "name": "new-name", "value": "false", "resourceId": "id", "active": false }`
+  - Response: Updated feature object
+
+- **DELETE** `/api/features/:id` - Delete a feature flag
+  - Response: 204 No Content
 
 ---
 
 ## Authentication
 
-All endpoints except `/health` require a valid API token (JWT) in the `Authorization` header:
+### Clerk Authentication
 
-```
-Authorization: Bearer <token>
+All protected endpoints use Clerk for authentication. Include a valid Clerk session token in the `Authorization` header:
+
+```bash
+Authorization: Bearer <clerk-session-token>
 ```
 
-Tokens can be created using the `/api/tokens` endpoint.
+### API Tokens (JWT)
+
+The `/api/tokens` endpoints allow you to create JWT tokens that can be used for programmatic access. These tokens are signed using the `JWT_SECRET` environment variable.
 
 ---
 
 ## Example Usage
 
-### 1. Create an API Token
+### 1. Authenticate with Clerk
+
+First, obtain a Clerk session token from your frontend application or directly from Clerk.
+
+### 2. Create an API Token
 
 ```bash
 curl -X POST http://localhost:3000/api/tokens \
-  -H "Authorization: Bearer <admin-token>" \
+  -H "Authorization: Bearer <clerk-session-token>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "test-token"}'
+  -d '{"name": "my-api-token", "createdByUid": "user_123"}'
 ```
-
-### 2. Use the Token
-
-Use the returned `token` field as the Bearer token for all subsequent requests.
 
 ### 3. Create a Feature Flag
 
 ```bash
 curl -X POST http://localhost:3000/api/features \
-  -H "Authorization: Bearer <token>" \
+  -H "Authorization: Bearer <clerk-session-token>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "new-feature", "value": "true"}'
+  -d '{"name": "new-feature", "value": "true", "active": true}'
 ```
 
----
+### 4. List Feature Flags
 
-## Libraries Used
+```bash
+curl -X GET http://localhost:3000/api/features \
+  -H "Authorization: Bearer <clerk-session-token>"
+```
 
-- [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken) - JWT authentication
-- [better-sqlite3](https://www.npmjs.com/package/better-sqlite3) - SQLite database driver
+### 5. Update a Feature Flag
 
-Bun's native APIs are used for the HTTP server and SQLite connection where possible.
+```bash
+curl -X PUT http://localhost:3000/api/features/1 \
+  -H "Authorization: Bearer <clerk-session-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"value": "false", "active": false}'
+```
+
+### 6. Delete a Feature Flag
+
+```bash
+curl -X DELETE http://localhost:3000/api/features/1 \
+  -H "Authorization: Bearer <clerk-session-token>"
+```
 
 ---
 
 ## Testing
 
-### Integration Tests
+### Running Tests
 
-Los tests de integración verifican el flujo completo desde los endpoints HTTP hasta la base de datos SQLite.
-
-#### Estructura sugerida
-
-Coloca los tests en el directorio `tests/` y usa Bun para ejecutarlos.
-
-#### Ejemplo de test de integración (`tests/features.integration.test.ts`):
-
-```ts
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-
-const BASE_URL = "http://localhost:3000";
-let token: string;
-
-beforeAll(async () => {
-  // Crea un token de prueba (requiere que el servidor esté corriendo y un token admin válido)
-  const res = await fetch(`${BASE_URL}/api/tokens`, {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer <admin-token>",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ name: "integration-test-token" })
-  });
-  const data = await res.json();
-  token = data.token;
-});
-
-describe("Features API", () => {
-  let featureId: number;
-
-  it("should create a feature", async () => {
-    const res = await fetch(`${BASE_URL}/api/features`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ name: "test-feature", value: "true" })
-    });
-    expect(res.status).toBe(201);
-    const data = await res.json();
-    expect(data.name).toBe("test-feature");
-    featureId = data.id;
-  });
-
-  it("should list features", async () => {
-    const res = await fetch(`${BASE_URL}/api/features`, {
-      method: "GET",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(Array.isArray(data)).toBe(true);
-  });
-
-  it("should get a feature by id", async () => {
-    const res = await fetch(`${BASE_URL}/api/features/${featureId}`, {
-      method: "GET",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.id).toBe(featureId);
-  });
-
-  it("should update a feature", async () => {
-    const res = await fetch(`${BASE_URL}/api/features/${featureId}`, {
-      method: "PUT",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ value: "false" })
-    });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.value).toBe("false");
-  });
-
-  it("should delete a feature", async () => {
-    const res = await fetch(`${BASE_URL}/api/features/${featureId}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    expect(res.status).toBe(204);
-  });
-});
-
-afterAll(async () => {
-  // Limpieza si es necesario
-});
-```
-
-### Ejecutar los tests
+The project includes integration tests using Bun's built-in test runner:
 
 ```bash
 bun test
 ```
 
+Tests automatically:
+- Start a test server on port 3456
+- Bypass Clerk authentication in test mode
+- Create test data
+- Verify all CRUD operations
+- Clean up after completion
+
+### Test Files
+
+- `tests/features.integration.test.ts` - Feature flags CRUD operations
+- `tests/tokens.integration.test.ts` - API token management
+
 ---
 
-## Notas
+## Tech Stack
 
-- Cambia el valor de `JWT_SECRET` en producción.
-- Puedes modificar la estructura de la base de datos en `src/db/index.ts`.
-- El servidor escucha en el puerto `3000` por defecto (puedes cambiarlo con la variable de entorno `PORT`).
+### Core Dependencies
+
+- **[Elysia](https://elysiajs.com/)** `^1.4.19` - Fast and ergonomic web framework for Bun
+- **[@elysiajs/cors](https://elysiajs.com/plugins/cors)** `^1.4.1` - CORS plugin for Elysia
+- **[@clerk/backend](https://clerk.com/docs)** `^1.34.0` - Clerk backend SDK for authentication
+- **[jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken)** `^9.0.3` - JWT token generation and verification
+- **[@sinclair/typebox](https://www.npmjs.com/package/@sinclair/typebox)** `^0.34.45` - JSON schema type builder
+
+### Dev Dependencies
+
+- **[@types/bun](https://www.npmjs.com/package/@types/bun)** `^1.3.5` - TypeScript types for Bun
+- **TypeScript** `^5.9.3` - TypeScript compiler
+
+### Built-in APIs
+
+- **Bun.Database** - SQLite database driver (built into Bun)
+- **Bun.test** - Test runner (built into Bun)
+
+---
+
+## Database Schema
+
+### api_tokens
+
+| Column         | Type     | Description                        |
+|----------------|----------|------------------------------------|
+| id             | INTEGER  | Primary key (auto-increment)       |
+| name           | TEXT     | Token name/description             |
+| token          | TEXT     | JWT token string (unique)          |
+| created_at     | DATETIME | Creation timestamp                 |
+| last_used_at   | DATETIME | Last usage timestamp               |
+| created_by_uid | TEXT     | User ID who created the token      |
+
+### features
+
+| Column      | Type     | Description                        |
+|-------------|----------|------------------------------------|
+| id          | INTEGER  | Primary key (auto-increment)       |
+| name        | TEXT     | Feature flag name                  |
+| value       | TEXT     | Feature flag value                 |
+| resource_id | TEXT     | Optional resource identifier       |
+| active      | INTEGER  | Active status (0 or 1)             |
+| created_at  | DATETIME | Creation timestamp                 |
+
+---
+
+## Configuration
+
+### Environment Variables
+
+| Variable                  | Required | Default        | Description                                    |
+|---------------------------|----------|----------------|------------------------------------------------|
+| PORT                      | No       | 3000           | Server port                                    |
+| CLERK_SECRET_KEY          | Yes*     | -              | Clerk secret key for authentication            |
+| CLERK_PUBLISHABLE_KEY     | Yes*     | -              | Clerk publishable key                          |
+| JWT_SECRET                | No       | "supersecret"  | Secret for signing JWT tokens (change in prod) |
+| NODE_ENV                  | No       | -              | Set to "test" to bypass authentication         |
+
+*Required in production, optional in test mode
+
+### Security Notes
+
+- **Change `JWT_SECRET` in production** - The default value is only for development
+- **Never commit `.env` files** - Keep your Clerk keys secure
+- **Use environment-specific configurations** - Different keys for dev/staging/prod
+- **Rotate API tokens regularly** - Implement token expiration policies
+
+---
+
+## Development
+
+### Adding New Routes
+
+1. Create route handlers in `src/routes/`
+2. Register routes in `index.ts`
+3. Apply `clerkMiddleware` for protected routes
+
+Example:
+
+```typescript
+import { clerkMiddleware } from "./src/middleware/clerk";
+import type { Elysia } from "elysia";
+
+export function registerMyRoutes(app: Elysia) {
+  app.get("/api/myroute", async (ctx) => {
+    await clerkMiddleware(ctx);
+    return { message: "Protected route" };
+  });
+}
+```
+
+### Database Migrations
+
+Currently, the database schema is initialized on startup in `src/db/index.ts`. For production use, consider implementing a proper migration system.
+
+---
+
+## Troubleshooting
+
+### Server won't start
+
+- Verify Bun is installed: `bun --version`
+- Check environment variables are set correctly
+- Ensure port 3000 (or custom PORT) is available
+
+### Authentication errors
+
+- Verify Clerk keys are correct and active
+- Check that the Authorization header includes `Bearer ` prefix
+- Ensure the Clerk session token is valid and not expired
+
+### Database errors
+
+- Check file permissions for `feature-flags.db`
+- Verify the database file isn't corrupted (delete and restart to recreate)
+- Check SQLite is working: the database is created automatically on first run
+
+### Test failures
+
+- Ensure no other service is running on port 3456
+- Check that `NODE_ENV=test` is set during test execution
+- Verify test database is writable
 
 ---
 
 ## License
 
 MIT
-bun install
-```
 
-To run:
+---
 
-```bash
-bun run index.ts
-```
+## Additional Resources
 
-This project was created using `bun init` in bun v1.1.34. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+- [Bun Documentation](https://bun.sh/docs)
+- [Elysia Documentation](https://elysiajs.com/)
+- [Clerk Documentation](https://clerk.com/docs)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
