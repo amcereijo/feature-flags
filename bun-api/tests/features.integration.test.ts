@@ -55,12 +55,17 @@ describe("Features API", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: "test-feature", value: "true" }),
+      body: JSON.stringify({
+        name: "test-feature",
+        value: "true",
+        valueType: "string",
+      }),
     });
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.name).toBe("test-feature");
     expect(data.value).toBe("true");
+    expect(data.valueType).toBe("string");
     featureId = data.id;
   });
 
@@ -84,6 +89,7 @@ describe("Features API", () => {
     const data = await res.json();
     expect(data.id).toBe(featureId);
     expect(data.name).toBe("test-feature");
+    expect(data.valueType).toBe("string");
   });
 
   it("should update a feature", async () => {
@@ -98,6 +104,60 @@ describe("Features API", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.value).toBe("false");
+  });
+
+  it("should create a feature with number value type", async () => {
+    const res = await fetch(`${BASE_URL}/api/features`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "test-number-feature",
+        value: "42",
+        valueType: "number",
+      }),
+    });
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.name).toBe("test-number-feature");
+    expect(data.value).toBe(42);
+    expect(typeof data.value).toBe("number");
+    expect(data.valueType).toBe("number");
+
+    // Clean up
+    await fetch(`${BASE_URL}/api/features/${data.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  });
+
+  it("should create a feature with boolean value type", async () => {
+    const res = await fetch(`${BASE_URL}/api/features`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "test-boolean-feature",
+        value: "true",
+        valueType: "boolean",
+      }),
+    });
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.name).toBe("test-boolean-feature");
+    expect(data.value).toBe(true);
+    expect(typeof data.value).toBe("boolean");
+    expect(data.valueType).toBe("boolean");
+
+    // Clean up
+    await fetch(`${BASE_URL}/api/features/${data.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
   });
 
   it("should delete a feature", async () => {
