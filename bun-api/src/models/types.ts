@@ -9,6 +9,16 @@ export interface Feature {
   createdAt: string; // ISO date string
 }
 
+export interface FeatureDb {
+  id: number;
+  name: string;
+  value: string;
+  value_type: "string" | "number" | "boolean";
+  resource_id: string;
+  active: boolean;
+  created_at: string; // ISO date string
+}
+
 // API token model
 export interface ApiToken {
   id: number;
@@ -17,4 +27,13 @@ export interface ApiToken {
   createdAt: string; // ISO date string
   lastUsedAt?: string; // ISO date string or undefined
   createdByUid?: string;
+}
+
+export interface ApiTokenDb {
+  id: number;
+  name: string;
+  token: string;
+  created_at: string; // ISO date string
+  last_used_at?: string; // ISO date string or undefined
+  created_by_uid?: string;
 }

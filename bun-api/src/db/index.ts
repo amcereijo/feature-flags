@@ -3,7 +3,7 @@ import { Database } from "bun:sqlite";
 
 const DB_PATH = process.env.DB_PATH || join(process.cwd(), "database.sqlite");
 
-let db: any = null;
+let db: Database | null = null;
 
 export function getDb() {
   if (!db) {
