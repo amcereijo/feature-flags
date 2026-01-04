@@ -14,24 +14,21 @@ const deleteTokenUseCase = new DeleteToken(db);
 
 // Elysia route registration
 export function registerTokenRoutes() {
-  const tokenRoutes = new Elysia();
-
-  tokenRoutes.post("/api/tokens", createToken, {
-    beforeHandle: clerkMiddleware,
-  });
-
-  tokenRoutes.get("/api/tokens", listTokens, {
-    beforeHandle: clerkMiddleware,
-  });
-
-  tokenRoutes.delete("/api/tokens/:id", deleteToken, {
-    beforeHandle: clerkMiddleware,
-  });
+  const tokenRoutes = new Elysia().group(
+    "/api/tokens",
+    {
+      beforeHandle: clerkMiddleware,
+    },
+    (tokenRoutes) =>
+      tokenRoutes
+        .post("/", createToken)
+        .get("/", listTokens)
+        .delete("/:id", deleteToken),
+  );
 
   return tokenRoutes;
 }
 
-// Crear token API
 async function createToken(ctx: Context) {
   try {
     const body = ctx.body as { name: string; createdByUid?: string };
@@ -52,14 +49,12 @@ async function createToken(ctx: Context) {
   }
 }
 
-// Listar tokens API
 async function listTokens(ctx: Context) {
   const tokens = await listTokensUseCase.execute();
   ctx.set.status = 200;
   return tokens;
 }
 
-// Eliminar token API
 async function deleteToken(ctx: Context) {
   const id = ctx.params.id;
   if (!id) {

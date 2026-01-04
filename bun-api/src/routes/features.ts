@@ -19,28 +19,19 @@ const deleteFeatureUseCase = new DeleteFeature(db);
 
 // Elysia route registration
 export function registerFeatureRoutes() {
-  const featureRoutes = new Elysia();
-
-  featureRoutes.post("/api/features", createFeature, {
-    beforeHandle: clerkMiddleware,
-  });
-
-  featureRoutes.get("/api/features", listFeatures, {
-    beforeHandle: clerkMiddleware,
-  });
-
-  featureRoutes.get("/api/features/:id", getFeature, {
-    beforeHandle: clerkMiddleware,
-  });
-
-  featureRoutes.put("/api/features/:id", updateFeature, {
-    beforeHandle: clerkMiddleware,
-  });
-
-  featureRoutes.delete("/api/features/:id", deleteFeature, {
-    beforeHandle: clerkMiddleware,
-  });
-
+  const featureRoutes = new Elysia().group(
+    "/api/features",
+    {
+      beforeHandle: clerkMiddleware,
+    },
+    (featureRoutes) =>
+      featureRoutes
+        .post("/", createFeature)
+        .get("/", listFeatures)
+        .get("/:id", getFeature)
+        .put("/:id", updateFeature)
+        .delete("/:id", deleteFeature),
+  );
   return featureRoutes;
 }
 
