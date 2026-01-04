@@ -2,7 +2,8 @@
 export interface Feature {
   id: number;
   name: string;
-  value: string;
+  value: string | number | boolean;
+  valueType: "string" | "number" | "boolean";
   resourceId?: string;
   active: boolean;
   createdAt: string; // ISO date string

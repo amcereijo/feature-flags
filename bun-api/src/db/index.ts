@@ -28,6 +28,7 @@ export function getDb() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         value TEXT NOT NULL,
+        value_type TEXT NOT NULL,
         resource_id TEXT,
         active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
