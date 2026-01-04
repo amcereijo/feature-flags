@@ -3,6 +3,19 @@ import type { Feature } from "../models/types";
 import { clerkMiddleware } from "../middleware/clerk";
 import type { Context } from "elysia";
 import { Elysia } from "elysia";
+import { CreateFeature } from "../usecases/features/create-feature.usecase";
+import { ListFeatures } from "../usecases/features/list-features.usecase";
+import { GetFeature } from "../usecases/features/get-feature.usecase";
+import { UpdateFeature } from "../usecases/features/update-feature.usecase";
+import { DeleteFeature } from "../usecases/features/delete-feature.usecase";
+
+const db = getDb();
+
+const createFeatureUseCase = new CreateFeature(db);
+const listFeaturesUseCase = new ListFeatures(db);
+const getFeatureUseCase = new GetFeature(db);
+const updateFeatureUseCase = new UpdateFeature(db);
+const deleteFeatureUseCase = new DeleteFeature(db);
 
 // Elysia route registration
 export function registerFeatureRoutes() {
@@ -38,30 +51,22 @@ async function createFeature(ctx: Context) {
 
     const { name, value, valueType, resourceId, active } = body as Feature;
 
+    // imrpove to add proper validations
     if (!name || typeof value === "undefined") {
       ctx.set.status = 400;
       return { error: "Missing name or value" };
     }
 
-    const db = getDb();
-    const { lastInsertRowid } = db.run(
-      `INSERT INTO features (name, value, resource_id, value_type, active) VALUES (?, ?, ?, ?, ?)`,
-      [
-        name,
-        value,
-        resourceId || null,
-        valueType,
-        typeof active === "undefined" ? 1 : active ? 1 : 0,
-      ],
-    );
-
-    // Get the last inserted feature
-    const row = db
-      .query("SELECT * FROM features WHERE id = ?")
-      .get(lastInsertRowid);
+    const feature = await createFeatureUseCase.execute({
+      name,
+      value,
+      valueType,
+      resourceId,
+      active,
+    } as Feature);
 
     ctx.set.status = 201;
-    return mapFeature(row);
+    return feature;
   } catch (err) {
     console.error(err);
     ctx.set.status = 400;
@@ -70,10 +75,9 @@ async function createFeature(ctx: Context) {
 }
 
 async function listFeatures(ctx: Context) {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM features").all();
+  const features = await listFeaturesUseCase.execute();
   ctx.set.status = 200;
-  return rows.map(mapFeature);
+  return features;
 }
 
 async function getFeature(ctx: Context) {
@@ -83,20 +87,17 @@ async function getFeature(ctx: Context) {
     return { error: "Missing feature ID" };
   }
 
-  const db = getDb();
+  const feature = await getFeatureUseCase.execute(Number(id));
 
-  const row = db.query("SELECT * FROM features WHERE id = ?").get(id);
-
-  if (!row) {
+  if (!feature) {
     ctx.set.status = 404;
     return { error: "Feature not found" };
   }
 
   ctx.set.status = 200;
-  return mapFeature(row);
+  return feature;
 }
 
-// Actualizar feature
 async function updateFeature(ctx: Context) {
   const id = ctx.params.id;
   if (!id) {
@@ -105,30 +106,16 @@ async function updateFeature(ctx: Context) {
   }
   try {
     const body = ctx.body as Partial<Feature>;
-    const { name, value, resourceId, active, valueType } = body;
 
-    const db = getDb();
-    const row = db.query("SELECT * FROM features WHERE id = ?").get(id);
-    if (!row) {
+    const updated = await updateFeatureUseCase.execute(Number(id), body);
+
+    if (!updated) {
       ctx.set.status = 404;
       return { error: "Feature not found" };
     }
 
-    db.run(
-      `UPDATE features SET name = ?, value = ?, value_type = ?, resource_id = ?, active = ? WHERE id = ?`,
-      [
-        typeof name === "undefined" ? row.name : name,
-        typeof value === "undefined" ? row.value : value,
-        typeof valueType === "undefined" ? row.value_type : valueType,
-        typeof resourceId === "undefined" ? row.resource_id : resourceId,
-        typeof active === "undefined" ? row.active : active ? 1 : 0,
-        id,
-      ],
-    );
-
-    const updated = db.query("SELECT * FROM features WHERE id = ?").get(id);
     ctx.set.status = 200;
-    return mapFeature(updated);
+    return updated;
   } catch (err) {
     ctx.set.status = 400;
     return { error: "Invalid request" };
@@ -143,40 +130,13 @@ async function deleteFeature(ctx: Context) {
     return { error: "Missing feature ID" };
   }
 
-  const db = getDb();
-  const row = db.query("SELECT * FROM features WHERE id = ?").get(id);
+  const deleted = await deleteFeatureUseCase.execute(Number(id));
 
-  if (!row) {
+  if (!deleted) {
     ctx.set.status = 404;
     return { error: "Feature not found" };
   }
 
-  db.run("DELETE FROM features WHERE id = ?", [id]);
   ctx.set.status = 204;
-
   return null;
-}
-
-// Utility to map DB row to Feature type
-function mapFeature(row: any): Feature {
-  const valueType = row.value_type;
-
-  let value: string | number | boolean;
-  if (valueType === "number") {
-    value = Number(row.value);
-  } else if (valueType === "boolean") {
-    value = row.value === "true" || row.value === "1";
-  } else {
-    value = row.value;
-  }
-
-  return {
-    id: row.id,
-    name: row.name,
-    value,
-    valueType,
-    resourceId: row.resource_id || undefined,
-    active: !!row.active,
-    createdAt: row.created_at,
-  };
 }

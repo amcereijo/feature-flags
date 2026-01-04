@@ -1,8 +1,16 @@
 import { getDb } from "../db";
-import type { ApiToken } from "../models/types";
-import { generateToken } from "../utils/jwt";
 import { clerkMiddleware } from "../middleware/clerk";
+import type { Context } from "elysia";
 import { Elysia } from "elysia";
+import { CreateToken } from "../usecases/tokens/create-token.usecase";
+import { ListTokens } from "../usecases/tokens/list-tokens.usecase";
+import { DeleteToken } from "../usecases/tokens/delete-token.usecase";
+
+const db = getDb();
+
+const createTokenUseCase = new CreateToken(db);
+const listTokensUseCase = new ListTokens(db);
+const deleteTokenUseCase = new DeleteToken(db);
 
 // Elysia route registration
 export function registerTokenRoutes() {
@@ -24,9 +32,9 @@ export function registerTokenRoutes() {
 }
 
 // Crear token API
-async function createToken(ctx: any) {
+async function createToken(ctx: Context) {
   try {
-    const body = ctx.body;
+    const body = ctx.body as { name: string; createdByUid?: string };
     const { name, createdByUid } = body;
 
     if (!name) {
@@ -34,22 +42,10 @@ async function createToken(ctx: any) {
       return { error: "Missing name" };
     }
 
-    // Generar JWT como token API
-    const token = generateToken({ name, uid: createdByUid || "" });
-
-    const db = getDb();
-    db.run(
-      `INSERT INTO api_tokens (name, token, created_by_uid) VALUES (?, ?, ?)`,
-      [name, token, createdByUid || null],
-    );
-
-    // Recuperar el último token insertado
-    const row = db
-      .query("SELECT * FROM api_tokens ORDER BY id DESC LIMIT 1")
-      .get();
+    const token = await createTokenUseCase.execute({ name, createdByUid });
 
     ctx.set.status = 201;
-    return mapApiToken(row);
+    return token;
   } catch (err) {
     ctx.set.status = 400;
     return { error: "Invalid request" };
@@ -57,39 +53,27 @@ async function createToken(ctx: any) {
 }
 
 // Listar tokens API
-async function listTokens(ctx: any) {
-  const db = getDb();
-  const rows = db.query("SELECT * FROM api_tokens").all();
+async function listTokens(ctx: Context) {
+  const tokens = await listTokensUseCase.execute();
   ctx.set.status = 200;
-  return rows.map(mapApiToken);
+  return tokens;
 }
 
 // Eliminar token API
-async function deleteToken(ctx: any) {
+async function deleteToken(ctx: Context) {
   const id = ctx.params.id;
   if (!id) {
     ctx.set.status = 400;
     return { error: "Missing token ID" };
   }
-  const db = getDb();
-  const row = db.prepare("SELECT * FROM api_tokens WHERE id = ?").get(id);
-  if (!row) {
+
+  const deleted = await deleteTokenUseCase.execute(Number(id));
+
+  if (!deleted) {
     ctx.set.status = 404;
     return { error: "Token not found" };
   }
-  db.prepare("DELETE FROM api_tokens WHERE id = ?").run(id);
+
   ctx.set.status = 204;
   return null;
-}
-
-// Utilidad para mapear filas de la base de datos al modelo ApiToken
-function mapApiToken(row: any): ApiToken {
-  return {
-    id: row.id,
-    name: row.name,
-    token: row.token,
-    createdAt: row.created_at,
-    lastUsedAt: row.last_used_at || undefined,
-    createdByUid: row.created_by_uid || undefined,
-  };
 }
