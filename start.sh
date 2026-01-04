@@ -22,9 +22,13 @@ if [ ! -f "api/.env" ]; then
   touch api/.env
 fi
 
-# Start backend
-echo "${CYAN}Starting backend (Go API)...${NC}"
-(cd api && go run cmd/api/main.go) 2>&1 | sed "s/^/[$(date +%H:%M:%S)] ${GREEN}BACKEND${NC}: /" &
+# Start Go backend
+# echo "${CYAN}Starting backend (Go API)...${NC}"
+# (cd api && go run cmd/api/main.go) 2>&1 | sed "s/^/[$(date +%H:%M:%S)] ${GREEN}BACKEND${NC}: /" &
+
+# Start bun-api backend
+echo "${CYAN}Starting bun-api backend...${NC}"
+(cd bun-api && bun run index.ts) 2>&1 | sed "s/^/[$(date +%H:%M:%S)] ${GREEN}BUN-API${NC}: /" &
 
 # Start frontend
 echo "${CYAN}Starting frontend (Vite React client)...${NC}"
