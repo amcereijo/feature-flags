@@ -11,9 +11,9 @@ const app = new Elysia();
 app.use(cors());
 // app.setMeta("description", "Elysia API for Feature Flags Management");
 
-registerHealthRoute(app);
-registerFeatureRoutes(app);
-registerTokenRoutes(app);
+app.use(registerHealthRoute());
+app.use(registerFeatureRoutes());
+app.use(registerTokenRoutes());
 
 app.onError(({ code, error }) => {
   console.error("Server error:", error);

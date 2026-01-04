@@ -1,8 +1,12 @@
-import type { Elysia } from "elysia";
+import { Elysia } from "elysia";
 
 /**
  * Registers the health check route on the provided Elysia app.
  */
-export function registerHealthRoute(app: Elysia) {
-  app.get("/health", () => ({ status: "ok" }));
+export function registerHealthRoute() {
+  const healthRoute = new Elysia();
+
+  healthRoute.get("/health", () => ({ status: "ok" }));
+
+  return healthRoute;
 }
