@@ -22,6 +22,10 @@ export function getDb() {
         created_by_uid TEXT
       );
     `);
+    // Agregar índice para "token"
+    db.run(`
+      CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens (token);
+    `);
 
     db.run(`
       CREATE TABLE IF NOT EXISTS features (
@@ -33,6 +37,10 @@ export function getDb() {
         active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    // Add index for "id", "resource_id"
+    db.run(`
+      CREATE INDEX IF NOT EXISTS idx_features_resource_id ON features (resource_id);
     `);
   }
 
