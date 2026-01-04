@@ -3,10 +3,16 @@ import { mapApiToken } from "../../mappers/tokens/row-to-token.mapper";
 import type { ApiTokenDb, ApiToken } from "../../models/types";
 import { generateToken } from "../../utils/jwt";
 
-export class CreateToken {
+export class CreateTokenUseCase {
   constructor(private readonly db: Database) {}
 
-  async execute({ name, createdByUid }: { name: string; createdByUid?: string }): Promise<ApiToken> {
+  async execute({
+    name,
+    createdByUid,
+  }: {
+    name: string;
+    createdByUid?: string;
+  }): Promise<ApiToken> {
     // Generate JWT as API token
     const token = generateToken({ name, uid: createdByUid || "" });
 
@@ -17,7 +23,10 @@ export class CreateToken {
 
     // Get the last inserted token
     const row = this.db
-      .query<ApiTokenDb, []>("SELECT * FROM api_tokens ORDER BY id DESC LIMIT 1")
+      .query<
+        ApiTokenDb,
+        []
+      >("SELECT * FROM api_tokens ORDER BY id DESC LIMIT 1")
       .get();
 
     if (!row) {

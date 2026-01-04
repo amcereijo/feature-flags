@@ -2,15 +2,15 @@ import { getDb } from "../db";
 import { clerkMiddleware } from "../middleware/clerk";
 import type { Context } from "elysia";
 import { Elysia } from "elysia";
-import { CreateToken } from "../usecases/tokens/create-token.usecase";
-import { ListTokens } from "../usecases/tokens/list-tokens.usecase";
-import { DeleteToken } from "../usecases/tokens/delete-token.usecase";
+import { CreateTokenUseCase } from "../usecases/tokens/create-token.usecase";
+import { ListTokensUseCase } from "../usecases/tokens/list-tokens.usecase";
+import { DeleteTokenUseCase } from "../usecases/tokens/delete-token.usecase";
 
 const db = getDb();
 
-const createTokenUseCase = new CreateToken(db);
-const listTokensUseCase = new ListTokens(db);
-const deleteTokenUseCase = new DeleteToken(db);
+const createTokenUseCase = new CreateTokenUseCase(db);
+const listTokensUseCase = new ListTokensUseCase(db);
+const deleteTokenUseCase = new DeleteTokenUseCase(db);
 
 // Elysia route registration
 export function registerTokenRoutes() {

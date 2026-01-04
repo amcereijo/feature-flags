@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mapApiToken } from "../../mappers/tokens/row-to-token.mapper";
 import type { ApiTokenDb, ApiToken } from "../../models/types";
 
-export class ListTokens {
+export class ListTokensUseCase {
   constructor(private readonly db: Database) {}
 
   async execute(): Promise<ApiToken[]> {
