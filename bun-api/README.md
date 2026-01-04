@@ -9,11 +9,16 @@ A feature flag service implemented in TypeScript using [Bun](https://bun.sh/) an
 ```
 bun-api/
 ├── src/
-│   ├── controllers/   # Route handlers (if needed)
 │   ├── db/            # Database connection and schema initialization
+│   ├── mappers/       # Database row to model mappers
+│   │   ├── features/  # Feature mappers
+│   │   └── tokens/    # Token mappers
 │   ├── middleware/    # Clerk authentication middleware
 │   ├── models/        # TypeScript types and interfaces
 │   ├── routes/        # Route definitions (features, tokens, health)
+│   ├── usecases/      # Business logic layer
+│   │   ├── features/  # Feature CRUD usecases
+│   │   └── tokens/    # Token CRUD usecases
 │   └── utils/         # Utility functions (JWT helpers)
 ├── tests/             # Integration tests
 ├── index.ts           # Entry point - Elysia app setup
@@ -30,6 +35,9 @@ bun-api/
 - Clerk authentication for protected routes
 - JWT tokens for API access
 - SQLite database (via Bun's built-in Database API)
+- Clean architecture with usecases and mappers
+- Separation of concerns (routes, usecases, mappers)
+- Type-safe database operations
 - Health check endpoint
 - CORS support
 - Integration tests with Bun test runner
@@ -295,25 +303,78 @@ Tests automatically:
 
 ## Development
 
-### Adding New Routes
+### Architecture Pattern
 
-1. Create route handlers in `src/routes/`
-2. Register routes in `index.ts`
-3. Apply `clerkMiddleware` for protected routes
+The application follows a clean architecture pattern with three main layers:
 
-Example:
+1. **Routes** (`src/routes/`) - HTTP request handlers that validate input and call usecases
+2. **Usecases** (`src/usecases/`) - Business logic that orchestrates operations
+3. **Mappers** (`src/mappers/`) - Convert between database rows and domain models
 
-```typescript
-import { clerkMiddleware } from "./src/middleware/clerk";
-import type { Elysia } from "elysia";
+### Adding New Features
 
-export function registerMyRoutes(app: Elysia) {
-  app.get("/api/myroute", async (ctx) => {
-    await clerkMiddleware(ctx);
-    return { message: "Protected route" };
-  });
-}
-```
+1. **Define Types** in `src/models/types.ts`
+   - Add domain model interface (e.g., `MyFeature`)
+   - Add database row interface (e.g., `MyFeatureDb`)
+
+2. **Create Mapper** in `src/mappers/myfeature/`
+   ```typescript
+   // row-to-myfeature.mapper.ts
+   export function mapMyFeature(row: MyFeatureDb): MyFeature {
+     return {
+       id: row.id,
+       name: row.name,
+       createdAt: row.created_at,
+     };
+   }
+   ```
+
+3. **Create Usecases** in `src/usecases/myfeature/`
+   ```typescript
+   // create-myfeature.usecase.ts
+   import { Database } from "bun:sqlite";
+   import { mapMyFeature } from "../../mappers/myfeature/row-to-myfeature.mapper";
+   
+   export class CreateMyFeature {
+     constructor(private readonly db: Database) {}
+     
+     async execute(data: Partial<MyFeature>): Promise<MyFeature> {
+       // Business logic here
+       const row = this.db.query("...").get();
+       return mapMyFeature(row);
+     }
+   }
+   ```
+
+4. **Create Routes** in `src/routes/myfeature.ts`
+   ```typescript
+   import { getDb } from "../db";
+   import { clerkMiddleware } from "../middleware/clerk";
+   import { Elysia } from "elysia";
+   import { CreateMyFeature } from "../usecases/myfeature/create-myfeature.usecase";
+   
+   const db = getDb();
+   const createMyFeatureUseCase = new CreateMyFeature(db);
+   
+   export function registerMyFeatureRoutes() {
+     const routes = new Elysia();
+     
+     routes.post("/api/myfeature", async (ctx) => {
+       const body = ctx.body as Partial<MyFeature>;
+       const result = await createMyFeatureUseCase.execute(body);
+       ctx.set.status = 201;
+       return result;
+     }, { beforeHandle: clerkMiddleware });
+     
+     return routes;
+   }
+   ```
+
+5. **Register Routes** in `index.ts`
+   ```typescript
+   import { registerMyFeatureRoutes } from "./src/routes/myfeature";
+   app.use(registerMyFeatureRoutes());
+   ```
 
 ### Database Migrations
 
